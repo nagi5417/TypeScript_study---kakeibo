@@ -1,65 +1,86 @@
-import Image from "next/image";
+"use client"
+import { Transaction } from "../types/Transaction";
+import { Header } from "../components/Header";
+import { useState, useEffect } from "react";
+import { CategoryPieChart } from "@/components/CategoryPieChart";
+import { MonthlyBarChart } from "@/components/MonthlyBarChart";
+import { BalanceLineChart } from "@/components/BalanceLineChart";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { MonthPicker } from "@/components/MonthPicker";
 
 export default function Home() {
+  const title = "家計簿アプリ";
+  const comment = "あなたの収支を管理するアプリです"
+  const [transactions, setTransactions] = useState<Transaction[]> ([])
+  const [currentMonth, setCurrentMonth] = useState<string>("2026-02");
+  const filteredTransactions = transactions.filter((transaction) => transaction.date.slice(0, 7) === currentMonth);
+  const incomeItems = filteredTransactions.filter((transaction) => transaction.type === "income");
+  const totalIncome = incomeItems.reduce((sum, incomeItem) => sum + incomeItem.amount, 0);
+  const expenseItems = filteredTransactions.filter((transaction) => transaction.type === "expense");
+  const totalExpense = expenseItems.reduce((sum, expenseItem) => sum + expenseItem.amount, 0);
+  const balance = totalIncome - totalExpense;
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  
+
+  useEffect(() => {
+    const fetchData = async() => {
+      try {
+        setIsLoading(true);
+        const response = await fetch("/api/transactions");
+        if (!response.ok) {
+          throw new Error("取引データの取得に失敗しました");
+        }
+
+        const data = await response.json();
+        setTransactions(data);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "エラーが発生しました。");
+      } finally {
+        setIsLoading(false);
+      }};
+    fetchData();
+  }, []);
+
+  if (status === "loading") {
+    return <p>読み込み中</p>;
+  }
+
+  if (status === "unauthenticated") {
+    router.push("/login");
+    return null;
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main className="max-w-4xl mx-auto p-6">
+      <p className="text-xl font-bold mb-4">{session?.user?.name}さん、こんにちは</p>
+      {isLoading ? (<p>読み込み中...</p>) : (
+        <Header
+        title={title}
+        comment={comment}
+        totalIncome={totalIncome}
+        totalExpense={totalExpense}
+        balance={balance}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      )}
+      <div className="flex items-center justify-center gap-4 my-4">
+        <MonthPicker currentMonth={currentMonth} onChangeMonth={setCurrentMonth}/>
+      </div>
+      
+      <div className="bg-white rounded-lg shadow p-4 mb-4">
+        <h2 className="text-lg font-bold mb-2">カテゴリ別支出</h2>
+        <CategoryPieChart transactions={filteredTransactions}/>
+      </div>
+      <div className="bg-white rounded-lg shadow p-4 mb-4">
+        <h2 className="text-lg font-bold mb-2">月別収支</h2>
+        <MonthlyBarChart transactions={filteredTransactions}/>
+      </div>
+      <div className="bg-white rounded-lg shadow p-4 mb-4">
+        <h2 className="text-lg font-bold mb-2">残高推移</h2>
+        <BalanceLineChart transactions={filteredTransactions}/>
+      </div>
+    </main>
   );
 }

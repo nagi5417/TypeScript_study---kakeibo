@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import Link from "next/link";
+import { AuthProvider } from "../components/AuthProvider";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,7 +30,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+      <nav className="border-b p-4 flex gap-4">
+        <Link href="/" className="hover:text-blue-200">ホームへ</Link>
+        <Link href="/transactions" className="hover:text-blue-200">取引一覧</Link>
+      </nav>
+      <AuthProvider>
         {children}
+      </AuthProvider>
       </body>
     </html>
   );
